@@ -1,0 +1,154 @@
+---
+title: "Reproducible Research - Course Project 1 "
+author: "Michael Crystal"
+date: "August 12, 2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+### Loading Libraries
+
+```{r,echo=TRUE,results='hide',message=FALSE,warning=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+### Loading the data 
+
+```{r,echo=TRUE,warning=FALSE}
+directory <- "./Reproducible_Research"
+file_name <- "repdata_data_activity.zip"
+dir <- paste(directory,"/",file_name,sep = '')
+unzip(zipfile = dir)
+df<-read.csv('activity.csv')
+df<-as.tbl(df)
+head(df)
+```
+
+### Histogram total steps per day and Mean and Median
+
+```{r,echo=TRUE,warning=FALSE,message=FALSE}
+Total_steps <- df %>%
+        group_by(date) %>%
+        summarise(sum(steps))
+
+colnames(Total_steps)[2]<-"tot_steps"
+
+g<-ggplot(Total_steps,aes(tot_steps))
+g + geom_histogram(binwidth = 1000,col = "black",fill = "blue") +
+        theme_bw() + 
+        ggtitle("Total number of steps - Frequency") + 
+        theme(plot.title = element_text(hjust = 0.5)) +
+        xlab("Total number of steps") + 
+        ylab("Frequency")
+
+step_mean <- mean(Total_steps$tot_steps,na.rm = TRUE)
+step_mean
+
+step_median <- median(Total_steps$tot_steps,na.rm = TRUE)
+step_median
+```
+
+### Average daily activity pattern - Intervals 
+
+```{r,echo=TRUE,warning=FALSE,message=FALSE}
+average_step<-df %>%
+        group_by(interval) %>%
+        summarise(mean(steps,na.rm = TRUE))
+
+colnames(average_step)[2]<-'avg_step'
+head(average_step)
+
+g<-ggplot(average_step,aes(interval,avg_step))
+g + geom_line(col='blue') +
+        theme_bw()+
+        ggtitle("Average steps by Interval") + 
+        theme(plot.title = element_text(hjust = 0.5)) +
+        ylab("Number of Steps") + 
+        xlab("Interval")
+
+average_step %>%
+        select(interval,avg_step) %>%
+        filter(avg_step == max(average_step$avg_step))
+```
+
+### Imputing missing values
+
+```{r,echo=TRUE,warning=FALSE,message=FALSE}
+
+num_na <- sum(is.na(df$steps))
+num_na
+
+nas <- average_step$avg_step[match(df$interval,average_step$interval)]
+
+df_comp<-transform(df,steps = ifelse(is.na(df$steps),yes = nas,no = df$steps))
+
+tot_steps_new <- df_comp %>%
+        group_by(date) %>%
+        summarise(sum(steps))
+
+colnames(tot_steps_new)[2] <- 'total_steps_new'
+
+g<-ggplot(tot_steps_new,aes(total_steps_new))
+g + geom_histogram(binwidth = 2500,col = "black",fill = "green") +
+        theme_bw() + 
+        ggtitle("Total number of steps - Frequency - without NAs") + 
+        theme(plot.title = element_text(hjust = 0.5)) +
+        xlab("Total number of steps") + 
+        ylab("Frequency")
+
+step_mean_new <- mean(tot_steps_new$total_steps_new)
+step_mean_new
+
+step_median_new <- median(tot_steps_new$total_steps_new)
+step_median_new
+```
+
+### Are there differences in activity patterns between weekdays and weekends?
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE}
+
+df_comp$date <- as.Date(df_comp$date, format = "%Y-%m-%d")
+df_comp$weekday <- weekdays(df_comp$date)
+
+df_comp$daytype <- ifelse(df_comp$weekday == 'Saturday' | df_comp$weekday == 'Sunday'
+                          ,yes = "weekend",no = 'weekday' )
+
+head(df_comp)
+
+weekday_step <- df_comp %>%
+        filter(daytype == 'weekday') %>%
+        group_by(interval) %>%
+        summarise(mean(steps))
+
+colnames(weekday_step)[2] <- "avg_steps"
+weekday_step$type<-'weekday'
+
+weekend_step <- df_comp %>%
+        filter(daytype == 'weekend') %>%
+        group_by(interval) %>%
+        summarise(mean(steps))
+
+colnames(weekend_step)[2] <- "avg_steps"
+weekend_step$type<-'weekend'
+
+df_new <- rbind(weekday_step,weekend_step)
+tail(df_new)
+
+g <-ggplot(df_new,aes(interval,avg_steps))
+g + geom_line(col='red' ) +
+        facet_grid(type~.) +
+        theme_bw() +
+        ggtitle("Average steps by Interval") + 
+        theme(plot.title = element_text(hjust = 0.5)) +
+        ylab("Number of Steps") + 
+        xlab("Interval")
+
+
+
+
+
+```
+
